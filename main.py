@@ -35,7 +35,7 @@ class DataProcessing:
             ]
         )
 
-    def tokenize_and_remove_punc(self, content: str) -> list[str]:
+    def tokenize_and_remove_punc(self, content: str) -> List[str]:
         # Remove punctuation (keep only letters, numbers, and whitespace)
         content = re.sub(r"[^\w\s]", "", content)
         # Split by whitespace
@@ -53,6 +53,28 @@ class DataProcessing:
         content = self.remain_capital_words(content)
 
         return content
+
+    def build_vocabulary(self, label: int) -> set:
+        """
+        Build vocabulary from texts with specified label. And store the pandas DataFrame as csv file.
+        """
+        vocab = set()
+
+        filtered_data = self.training[self.training["label"] == label].copy()
+        filtered_data["tokens"] = filtered_data["content"].apply(
+            self.tokenize_and_remove_punc
+        )
+
+        if label == 1:
+            filtered_data.to_csv("positive_label_data.csv", index=False)
+        else:
+            filtered_data.to_csv("negative_label_data.csv", index=False)
+
+        # Build vocabulary from all tokens
+        for tokens in filtered_data["tokens"]:
+            vocab.update(tokens)
+
+        return vocab
 
     def main(self) -> Dict[str, set]:
         def build_dataframe(file_dir: str) -> pd.DataFrame:
@@ -80,14 +102,17 @@ class DataProcessing:
         # print(self.training.head())
         # print(self.testing.head())
 
-        positive_vocub = set()
-        self.training[self.training["label"] == 1]["content"].apply(
-            lambda x: positive_vocub.update(self.tokenize_and_remove_punc(x))
-        )
-        return {"positive_vocub": positive_vocub}
+        positive_vocab = self.build_vocabulary(label=1)
+        word2idx = {word: idx for idx, word in enumerate(positive_vocab)}
+
+        return {"positive_vocab": positive_vocab, "word2idx": word2idx}
 
 
 if __name__ == "__main__":
-    processor = DataProcessing()
-    result = processor.main()
-    print(result)
+    if not os.path.exists("positive_label_data.csv"):
+        processor = DataProcessing()
+        result = processor.main()
+    else:
+        print("positive_label_data.csv already exists. Skipping data processing.")
+        positive_data = pd.read_csv("positive_label_data.csv")
+        print(positive_data.head())
