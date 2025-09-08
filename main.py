@@ -1,6 +1,8 @@
 import os
 import re
+import json
 from typing import List, Dict
+from unittest import result
 import emoji
 from bs4 import BeautifulSoup as bs
 import pandas as pd
@@ -70,13 +72,15 @@ class DataProcessing:
         else:
             filtered_data.to_csv("negative_label_data.csv", index=False)
 
-        # Build vocabulary from all tokens
         for tokens in filtered_data["tokens"]:
             vocab.update(tokens)
 
         return vocab
 
     def main(self) -> Dict[str, set]:
+
+        result = dict()
+
         def build_dataframe(file_dir: str) -> pd.DataFrame:
             file_paths = self.list_all_files(file_dir)
             rows = []
@@ -99,20 +103,30 @@ class DataProcessing:
         self.training["content"] = self.training["content"].apply(self.data_cleaning)
         # self.testing["content"] = self.testing["content"].apply(self.data_cleaning)
 
-        # print(self.training.head())
-        # print(self.testing.head())
-
         positive_vocab = self.build_vocabulary(label=1)
         word2idx = {word: idx for idx, word in enumerate(positive_vocab)}
+        idx2word = {idx: word for word, idx in word2idx.items()}
 
-        return {"positive_vocab": positive_vocab, "word2idx": word2idx}
+        result["positive_vocab"] = list(positive_vocab)
+        result["word2idx"] = word2idx
+        result["idx2word"] = idx2word
+
+        with open("vocab.json", "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+
+        return result
 
 
 if __name__ == "__main__":
-    if not os.path.exists("positive_label_data.csv"):
+    if not os.path.exists("positive_label_data.csv") or not os.path.exists(
+        "vocab.json"
+    ):
         processor = DataProcessing()
         result = processor.main()
     else:
-        print("positive_label_data.csv already exists. Skipping data processing.")
+        print(
+            "positive_label_data.csv and vocab.json already exists. Skipping data processing."
+        )
         positive_data = pd.read_csv("positive_label_data.csv")
+        vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
         print(positive_data.head())
