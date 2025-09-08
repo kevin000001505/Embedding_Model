@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List, Dict
 import emoji
 from bs4 import BeautifulSoup as bs
@@ -24,17 +25,24 @@ class DataProcessing:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def data_cleaning(self, content: str) -> str:
+    def remain_capital_words(self, content: str) -> str:
+        # If the words have more than one capital letter, keep it as is; otherwise, convert to lowercase
+        words = content.split()
+        return " ".join(
+            [
+                word if sum(1 for ch in word if ch.isupper()) > 1 else word.lower()
+                for word in words
+            ]
+        )
 
-        def remain_capital_words(content: str) -> str:
-            # detect fully capitalized words
-            words = content.split()
-            return " ".join(
-                [
-                    word if sum(1 for ch in word if ch.isupper()) > 1 else word.lower()
-                    for word in words
-                ]
-            )
+    def tokenize_and_remove_punc(self, content: str) -> list[str]:
+        # Remove punctuation (keep only letters, numbers, and whitespace)
+        content = re.sub(r"[^\w\s]", "", content)
+        # Split by whitespace
+        tokens = content.split()
+        return tokens
+
+    def data_cleaning(self, content: str) -> str:
 
         # remove HTML tags
         content = bs(content, "html.parser").get_text()
@@ -42,10 +50,13 @@ class DataProcessing:
         # remove emoji
         content = emoji.demojize(content)
 
+        content = self.remain_capital_words(content)
+
         return content
 
-    def main(self):
-        def build_dataframe(file_paths: List[str]) -> pd.DataFrame:
+    def main(self) -> Dict[str, set]:
+        def build_dataframe(file_dir: str) -> pd.DataFrame:
+            file_paths = self.list_all_files(file_dir)
             rows = []
             for path in file_paths:
                 rows.append(
@@ -60,13 +71,23 @@ class DataProcessing:
                 )
             return pd.DataFrame(rows)
 
-        self.training = build_dataframe(self.list_all_files(train_dir))
-        self.testing = build_dataframe(self.list_all_files(test_dir))
+        self.training = build_dataframe(train_dir)
+        # self.testing = build_dataframe(test_dir)
 
-        print(self.training.head())
-        print(self.testing.head())
+        self.training["content"] = self.training["content"].apply(self.data_cleaning)
+        # self.testing["content"] = self.testing["content"].apply(self.data_cleaning)
+
+        # print(self.training.head())
+        # print(self.testing.head())
+
+        positive_vocub = set()
+        self.training[self.training["label"] == 1]["content"].apply(
+            lambda x: positive_vocub.update(self.tokenize_and_remove_punc(x))
+        )
+        return {"positive_vocub": positive_vocub}
 
 
 if __name__ == "__main__":
     processor = DataProcessing()
-    processor.main()
+    result = processor.main()
+    print(result)
