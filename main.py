@@ -57,6 +57,9 @@ class DataProcessing:
 
         content = re.sub(r"[^\w\s]", "", content)
 
+        # Need the re to remove links like http, https, www
+        content = re.sub(r"http\S+|www\S+|https\S+", "", content, flags=re.MULTILINE)
+
         return content.strip()
 
     def build_vocabulary(self, label: int) -> set:
@@ -258,8 +261,8 @@ if __name__ == "__main__":
         print(
             "positive_label_data.csv and vocab.json already exists. Skipping data processing."
         )
-        positive_data = pd.read_csv("positive_label_data.csv")
-        vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
+    positive_data = pd.read_csv("positive_label_data.csv")
+    vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
 
     trainer = PrepareTrainingData(vocab)
     df = trainer.main(context_window=2)
