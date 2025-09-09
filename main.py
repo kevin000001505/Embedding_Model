@@ -9,6 +9,8 @@ import pandas as pd
 
 
 class DataProcessing:
+    """Clean the data and build vocabulary."""
+
     def __init__(
         self, train_dir: str = "./tweet/train", test_dir: str = "./tweet/test"
     ):
@@ -128,6 +130,8 @@ class DataProcessing:
 
 
 class PrepareTrainingData:
+    """Prepare the training data for the Neural Network and logistic regression model."""
+
     def __init__(
         self, vocab: Dict[str, any], file_dir: str = "positive_label_data.csv"
     ):
@@ -248,6 +252,13 @@ class PrepareTrainingData:
         print("Successfully created training samples.")
 
         return self.positive_samples
+
+
+class NNLogisticModel:
+    """Train the NN and Logistic Regression model."""
+
+    def __init__(self):
+        pass
 
 
 if __name__ == "__main__":
