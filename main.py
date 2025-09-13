@@ -5,6 +5,7 @@ import random
 from typing import List, Dict, Tuple
 import emoji
 from bs4 import BeautifulSoup as bs
+import torch.nn as nn
 import pandas as pd
 
 
@@ -81,6 +82,10 @@ class DataProcessing:
         )
 
         filtered_data.to_csv(filename, index=False)
+        json_filename = filename.replace(".csv", ".json")
+        filtered_data.to_json(
+            json_filename, orient="records", force_ascii=False, indent=2
+        )
         print(f"Successfully saved {filename}")
 
         vocab = set()
@@ -254,11 +259,28 @@ class PrepareTrainingData:
         return self.positive_samples
 
 
-class NNLogisticModel:
-    """Train the NN and Logistic Regression model."""
+class SimpleWord2Vec_LogiR(nn.Module):
 
-    def __init__(self):
-        pass
+    def __init__(self, vocab_size, embedding_dim):
+        super(SimpleWord2Vec_LogiR, self).__init__()
+        # set TWO embeddings for target and context, respectively
+        self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.context_embedding = nn.Embedding(vocab_size, embedding_dim)
+        # TO DO::
+        # Use nn.Linear(in_features, out_features)
+        # Note that the sizes of input features and output features
+        # TO DO::
+        # complete the rest of code
+        # TO DO::
+
+    def forward(self, inputs):
+        # get indices of target and context from inputs, respectively
+        target, context = inputs
+        # look up their corresponding embeddings and concatenate them using torch.cat()
+        # TO DO::
+        # complete the rest of code
+        # TO DO::
+        return out
 
 
 if __name__ == "__main__":
