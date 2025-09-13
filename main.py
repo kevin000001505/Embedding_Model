@@ -2,9 +2,10 @@ import os
 import re
 import json
 import random
-from typing import List, Dict, Tuple
 import emoji
+from typing import List, Dict, Tuple
 from bs4 import BeautifulSoup as bs
+import torch
 import torch.nn as nn
 import pandas as pd
 
@@ -41,13 +42,6 @@ class DataProcessing:
             ]
         )
 
-    def tokenize_and_remove_punc(self, content: str) -> List[str]:
-        # Remove punctuation (keep only letters, numbers, and whitespace)
-        content = re.sub(r"[^\w\s]", "", content)
-
-        tokens = content.split()
-        return tokens
-
     def data_cleaning(self, content: str) -> str:
 
         # remove HTML tags
@@ -67,25 +61,19 @@ class DataProcessing:
 
     def build_vocabulary(self, label: int) -> set:
         """
-        Build vocabulary from texts with specified label. And store the pandas DataFrame as csv file.
+        Build vocabulary from texts with specified label. And store the pandas DataFrame as json file.
         """
 
         filtered_data = self.training[self.training["label"] == label].copy()
 
-        # Store the tokens into column just to check the result in csv file
-        filtered_data["tokens"] = filtered_data["content"].apply(
-            self.tokenize_and_remove_punc
-        )
+        # Store the tokens into column just to check the result in json file
+        filtered_data["tokens"] = filtered_data["content"].apply(lambda x: x.split())
 
         filename = (
-            "positive_label_data.csv" if label == 1 else "negative_label_data.csv"
+            "positive_label_data.json" if label == 1 else "negative_label_data.json"
         )
 
-        filtered_data.to_csv(filename, index=False)
-        json_filename = filename.replace(".csv", ".json")
-        filtered_data.to_json(
-            json_filename, orient="records", force_ascii=False, indent=2
-        )
+        filtered_data.to_json(filename, orient="records", force_ascii=False, indent=2)
         print(f"Successfully saved {filename}")
 
         vocab = set()
@@ -116,6 +104,7 @@ class DataProcessing:
         self.training = self.build_dataframe(self.train_dir)
 
         self.training["content"] = self.training["content"].apply(self.data_cleaning)
+        self.training = self.training[self.training["content"] != ""]
 
         positive_vocab = self.build_vocabulary(label=1)
         word2idx = {word: idx for idx, word in enumerate(positive_vocab)}
@@ -138,12 +127,12 @@ class PrepareTrainingData:
     """Prepare the training data for the Neural Network and logistic regression model."""
 
     def __init__(
-        self, vocab: Dict[str, any], file_dir: str = "positive_label_data.csv"
+        self, vocab: Dict[str, any], file_dir: str = "positive_label_data.json"
     ):
         self.word2idx = vocab["word2idx"]
         self.idx2word = vocab["idx2word"]
         self.vocab = vocab["positive_vocab"]
-        self.training_data = pd.read_csv(file_dir)
+        self.training_data = pd.read_json(file_dir)
         self.positive_samples = pd.DataFrame(columns=["training", "label"])
 
     def generate_neg_samples(
@@ -247,7 +236,7 @@ class PrepareTrainingData:
         all_lab = []
 
         for _, row in self.training_data.iterrows():
-            tokens = row["content"].split(" ")
+            tokens = row["content"].split()
             try:
                 results = self.create_training_data(tokens, context_window, proximity)
 
@@ -267,26 +256,25 @@ class PrepareTrainingData:
 
 class SimpleWord2Vec_LogiR(nn.Module):
 
-    def __init__(self, vocab_size, embedding_dim):
+    def __init__(self, vocab_size: int, embedding_dim: int = 256):
         super(SimpleWord2Vec_LogiR, self).__init__()
         # set TWO embeddings for target and context, respectively
         self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
         self.context_embedding = nn.Embedding(vocab_size, embedding_dim)
-        # TO DO::
-        # Use nn.Linear(in_features, out_features)
-        # Note that the sizes of input features and output features
-        # TO DO::
-        # complete the rest of code
-        # TO DO::
 
     def forward(self, inputs):
         # get indices of target and context from inputs, respectively
-        target, context = inputs
-        # look up their corresponding embeddings and concatenate them using torch.cat()
-        # TO DO::
-        # complete the rest of code
-        # TO DO::
-        return out
+        target = inputs[0]
+        context = inputs[1]
+
+        target_emb = self.target_embedding(target)
+        context_emb = self.context_embedding(context)
+
+        dot_product = torch.dot(target_emb, context_emb.T).squeeze()
+
+        # Sigmoid for probability
+        output = torch.sigmoid(dot_product)
+        return output
 
 
 if __name__ == "__main__":
@@ -295,16 +283,21 @@ if __name__ == "__main__":
         "vocab.json"
     ):
         processor = DataProcessing()
-        processor.main()
+        vocab = processor.main()
     else:
         print(
             "positive_label_data.json and vocab.json already exists. Skipping data processing."
         )
-    positive_data = pd.read_json("positive_label_data.json")
-    vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
+        vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
 
     trainer = PrepareTrainingData(vocab)
-    df = trainer.main(context_window=2)
+    word2index = vocab["word2idx"]
+    idx2word = vocab["idx2word"]
 
-    print("Total rows:", df.shape[0])
-    print(df.head(10))
+    # We got DataFrame with 2 columns: "training": list object with target first and context next and "label": 0 or 1
+    training_data = trainer.main(context_window=2)
+
+    # we got [[idx_target, idx_context], ...]
+    training_data["idx"] = training_data["training"].apply(
+        lambda x: [word2index[word] for word in x]
+    )
