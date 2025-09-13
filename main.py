@@ -164,7 +164,7 @@ class PrepareTrainingData:
         return (neg_samples, [0] * len(neg_samples))
 
     def create_training_data(
-        self, data: List[str], context_window: int = 2
+        self, data: List[str], context_window: int = 2, proximity: bool = False
     ) -> Tuple[List[int], List[int]]:
         """Algorithm to generate the training data and labels."""
 
@@ -175,6 +175,12 @@ class PrepareTrainingData:
         try:
             while k < context_window:
                 k += 1
+                # Determine the positive label based on the distance with the target word
+                if proximity:
+                    positive_label = context_window - k + 1
+                else:
+                    positive_label = 1
+
                 for i in range(len(data)):
 
                     if i - k < 0 and i + k < len(data) - 1:
@@ -183,7 +189,7 @@ class PrepareTrainingData:
                             continue
 
                         tr_s.append(sample)
-                        lab_s.append(context_window - k + 1)
+                        lab_s.append(positive_label)
 
                         # generate negative samples (4*[target, negative_word], [0, 0, 0, 0])
                         generate_neg_samples = self.generate_neg_samples(
@@ -197,7 +203,7 @@ class PrepareTrainingData:
                         if sample in tr_s:
                             continue
                         tr_s.append(sample)
-                        lab_s.append(context_window - k + 1)
+                        lab_s.append(positive_label)
 
                         generate_neg_samples = self.generate_neg_samples(
                             sample, context_window
@@ -211,7 +217,7 @@ class PrepareTrainingData:
 
                         if r_sample not in tr_s:
                             tr_s.append(r_sample)
-                            lab_s.append(context_window - k + 1)
+                            lab_s.append(positive_label)
 
                             generate_neg_samples = self.generate_neg_samples(
                                 r_sample, context_window
@@ -221,7 +227,7 @@ class PrepareTrainingData:
 
                         if l_sample not in tr_s:
                             tr_s.append(l_sample)
-                            lab_s.append(context_window - k + 1)
+                            lab_s.append(positive_label)
 
                             generate_neg_samples = self.generate_neg_samples(
                                 l_sample, context_window
@@ -236,14 +242,14 @@ class PrepareTrainingData:
 
         return (tr_s, lab_s)
 
-    def main(self, context_window: int = 2) -> pd.DataFrame:
+    def main(self, context_window: int = 2, proximity: bool = False) -> pd.DataFrame:
         all_tr = []
         all_lab = []
 
         for _, row in self.training_data.iterrows():
             tokens = row["content"].split(" ")
             try:
-                results = self.create_training_data(tokens, context_window)
+                results = self.create_training_data(tokens, context_window, proximity)
 
                 all_tr += results[0]
                 all_lab += results[1]
@@ -285,16 +291,16 @@ class SimpleWord2Vec_LogiR(nn.Module):
 
 if __name__ == "__main__":
     # If exist skip the data processing step
-    if not os.path.exists("positive_label_data.csv") or not os.path.exists(
+    if not os.path.exists("positive_label_data.json") or not os.path.exists(
         "vocab.json"
     ):
         processor = DataProcessing()
         processor.main()
     else:
         print(
-            "positive_label_data.csv and vocab.json already exists. Skipping data processing."
+            "positive_label_data.json and vocab.json already exists. Skipping data processing."
         )
-    positive_data = pd.read_csv("positive_label_data.csv")
+    positive_data = pd.read_json("positive_label_data.json")
     vocab = json.load(open("vocab.json", "r", encoding="utf-8"))
 
     trainer = PrepareTrainingData(vocab)
