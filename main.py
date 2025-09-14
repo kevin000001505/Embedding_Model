@@ -339,12 +339,14 @@ if __name__ == "__main__":
         print("Successfully cleaned the tweet data and saved in cleaned_tweet folder")
 
     dataloader = PrepareData(vocab_path="vocab.json")
+
     training_data = dataloader.main(
         context_window=2, proximity=False, label="positive", file_dir="train"
     )
     testing_data = dataloader.main(
         context_window=2, proximity=False, label="positive", file_dir="test"
     )
+
     vocab = dataloader.load_data(label="positive", file_dir="train")
 
     x_train = torch.tensor(training_data["encoded_data"].tolist())
@@ -356,7 +358,7 @@ if __name__ == "__main__":
     nn_model = SimpleWord2Vec_FFNN(
         vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
     )
-    # Train for logistic regression
+
     lr = 0.01
     loss_function = nn.BCELoss()
 
@@ -381,3 +383,7 @@ if __name__ == "__main__":
                 print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
         print("Training complete.\n")
         print("total train_loss =", total_loss)
+
+    # On going...
+    # Evaluate the model on the test set
+    # Extract the weights and plot on 2D space using PCA
