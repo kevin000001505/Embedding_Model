@@ -2,6 +2,7 @@ import os
 import re
 import json
 import random
+import numpy as np
 import emoji
 from typing import List, Dict, Tuple, Union
 from sklearn.decomposition import PCA
@@ -329,6 +330,40 @@ class SimpleWord2Vec_FFNN(nn.Module):
         return out
 
 
+def train(model, x_train, y_train, lr=0.01, num_epochs=100):
+    """Train the model. Get the Embedding weights after training."""
+    loss_function = nn.BCELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    total_loss = 0
+    losses = []
+    for epoch in range(num_epochs):
+        y_predicted = model(x_train)
+
+        optimizer.zero_grad()
+        loss = loss_function(y_predicted, y_train)
+        loss.backward()
+        optimizer.step()
+
+        losses.append(loss.item())
+        total_loss += loss.item()
+
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
+
+    print("Training complete.\n")
+    print("total train_loss =", total_loss)
+
+    # --- Extract embeddings ---
+    target_emb = model.target_embedding.weight.detach().numpy()
+    context_emb = model.context_embedding.weight.detach().numpy()
+
+    emb_sum = target_emb + context_emb
+    emb_avg = (target_emb + context_emb) / 2
+    emb_concat = np.concatenate([target_emb, context_emb], axis=1)
+
+    return {"sum": emb_sum, "avg": emb_avg, "concat": emb_concat}, losses
+
+
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
         print(
@@ -360,30 +395,10 @@ if __name__ == "__main__":
         vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
     )
 
-    lr = 0.01
-    loss_function = nn.BCELoss()
+    log_embeddings, log_losses = train(log_model, x_train, y_train)
+    nn_embeddings, nn_losses = train(nn_model, x_train, y_train)
 
-    models = [log_model, nn_model]
-    for model in models:
-        total_loss = 0
-        print(f"\nTraining model: {model.__class__.__name__}")
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-        num_epochs = 100
-        losses = []
-        for epoch in range(num_epochs):
-            y_predicted = model(x_train)
-
-            loss = loss_function(y_predicted, y_train)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            losses.append(loss.item())
-            total_loss += loss.item()
-
-            if (epoch + 1) % 10 == 0:
-                print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
-        print("Training complete.\n")
-        print("total train_loss =", total_loss)
+    breakpoint()
 
     # On going...
     # Evaluate the model on the test set
