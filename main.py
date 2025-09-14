@@ -278,6 +278,33 @@ class SimpleWord2Vec_LogiR(nn.Module):
         return out
 
 
+class SimpleWord2Vec_FFNN(nn.Module):
+
+    def __init__(self, vocab_size, embedding_dim, node_size=64):
+        super(SimpleWord2Vec_FFNN, self).__init__()
+
+        self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.context_embedding = nn.Embedding(vocab_size, embedding_dim)
+
+        self.layer1 = nn.Linear(2 * embedding_dim, node_size)
+        self.layer2 = nn.Linear(node_size, node_size)
+        self.layer3 = nn.Linear(node_size, 1)
+
+    def forward(self, inputs):
+        target = inputs[:, 0]
+        context = inputs[:, 1]
+
+        target_emb = self.target_embedding(target)
+        context_emb = self.context_embedding(context)
+
+        combined = torch.cat([target_emb, context_emb], dim=1)
+        out = self.layer1(combined)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = torch.sigmoid(out)
+        return out
+
+
 if __name__ == "__main__":
     # If exist skip the data processing step
     if not os.path.exists("positive_label_data.json") or not os.path.exists(
@@ -307,21 +334,34 @@ if __name__ == "__main__":
         training_data["label"].tolist(), dtype=torch.float32
     ).unsqueeze(1)
 
-    model = SimpleWord2Vec_LogiR(
+    log_model = SimpleWord2Vec_LogiR(
         vocab_size=len(vocab["positive_vocab"]), embedding_dim=64
     )
-    lr = 0.1
+    nn_model = SimpleWord2Vec_FFNN(
+        vocab_size=len(vocab["positive_vocab"]), embedding_dim=64, node_size=32
+    )
+    # Train for logistic regression
+    lr = 0.01
     loss_function = nn.BCELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
-    num_epochs = 100
-    for epoch in range(num_epochs):
-        y_predicted = model(x_train)
+    models = [log_model, nn_model]
+    for model in models:
+        total_loss = 0
+        print(f"\nTraining model: {model.__class__.__name__}")
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+        num_epochs = 100
+        losses = []
+        for epoch in range(num_epochs):
+            y_predicted = model(x_train)
 
-        loss = loss_function(y_predicted, y_train)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+            loss = loss_function(y_predicted, y_train)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            losses.append(loss.item())
+            total_loss += loss.item()
 
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
+            if (epoch + 1) % 10 == 0:
+                print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
+        print("Training complete.\n")
+        print("total train_loss =", total_loss)
