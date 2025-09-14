@@ -4,6 +4,7 @@ import json
 import random
 import emoji
 from typing import List, Dict, Tuple, Union
+from sklearn.decomposition import PCA
 from bs4 import BeautifulSoup as bs
 import torch
 import torch.nn as nn
@@ -349,7 +350,7 @@ if __name__ == "__main__":
 
     vocab = dataloader.load_data(label="positive", file_dir="train")
 
-    x_train = torch.tensor(training_data["encoded_data"].tolist())
+    x_train = torch.tensor(training_data["encoded_data"].tolist(), dtype=torch.long)
     y_train = torch.tensor(
         training_data["label"].tolist(), dtype=torch.float32
     ).unsqueeze(1)
