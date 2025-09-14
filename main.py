@@ -256,25 +256,26 @@ class PrepareTrainingData:
 
 class SimpleWord2Vec_LogiR(nn.Module):
 
-    def __init__(self, vocab_size: int, embedding_dim: int = 256):
+    def __init__(self, vocab_size: int, embedding_dim: int = 128):
         super(SimpleWord2Vec_LogiR, self).__init__()
         # set TWO embeddings for target and context, respectively
         self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
         self.context_embedding = nn.Embedding(vocab_size, embedding_dim)
 
+        self.linear = nn.Linear(2 * embedding_dim, 1)
+
     def forward(self, inputs):
         # get indices of target and context from inputs, respectively
-        target = inputs[0]
-        context = inputs[1]
+        target = inputs[:, 0]
+        context = inputs[:, 1]
 
         target_emb = self.target_embedding(target)
         context_emb = self.context_embedding(context)
 
-        dot_product = torch.dot(target_emb, context_emb.T).squeeze()
-
-        # Sigmoid for probability
-        output = torch.sigmoid(dot_product)
-        return output
+        combined = torch.cat([target_emb, context_emb], dim=1)
+        out = self.linear(combined)
+        out = torch.sigmoid(out)
+        return out
 
 
 if __name__ == "__main__":
@@ -301,3 +302,26 @@ if __name__ == "__main__":
     training_data["idx"] = training_data["training"].apply(
         lambda x: [word2index[word] for word in x]
     )
+    x_train = torch.tensor(training_data["idx"].tolist())
+    y_train = torch.tensor(
+        training_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+
+    model = SimpleWord2Vec_LogiR(
+        vocab_size=len(vocab["positive_vocab"]), embedding_dim=64
+    )
+    lr = 0.1
+    loss_function = nn.BCELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+
+    num_epochs = 100
+    for epoch in range(num_epochs):
+        y_predicted = model(x_train)
+
+        loss = loss_function(y_predicted, y_train)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
