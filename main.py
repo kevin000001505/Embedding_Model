@@ -12,6 +12,110 @@ import torch
 import torch.nn as nn
 import pandas as pd
 
+words_to_plot = [
+    "hire",
+    "ATC",
+    "worst2unitedflightsever",
+    "cha",
+    "lusaka",
+    "share",
+    "excuse",
+    "badpolicy",
+    "exception",
+    "annricord",
+    "GRU",
+    "HOPELESS",
+    "1735",
+    "reopen",
+    "unitedfailsworsttripofmylife",
+    "evaluate",
+    "thickens",
+    "overheating",
+    "passport",
+    "chosen",
+    "yet",
+    "crying_face",
+    "DENPHX",
+    "tuesday",
+    "blizzard",
+    "rage",
+    "frustrating",
+    "preparedhonestly",
+    "evennotified",
+    "quoting",
+    "hassle",
+    "aware",
+    "dpted",
+    "workers",
+    "giving",
+    "customers",
+    "PRERECORDED",
+    "changing",
+    "seems",
+    "comeonpeople",
+    "5612",
+    "face",
+    "street",
+    "credit",
+    "midnight",
+    "hoagy10",
+    "set",
+    "bitcoin",
+    "715",
+    "55",
+    "jana",
+    "assigned",
+    "thur",
+    "scenario",
+    "btw",
+    "cannot",
+    "2plains",
+    "exist",
+    "backed",
+    "joyadventuremom",
+    "KPHL",
+    "bother",
+    "after2",
+    "unhappycustomer",
+    "resolved",
+    "rdu",
+    "massages",
+    "difference",
+    "unhappy",
+    "221",
+    "mgmt",
+    "early",
+    "till",
+    "filthy",
+    "one",
+    "brought",
+    "stat",
+    "raving",
+    "report",
+    "219",
+    "hit",
+    "swallowed",
+    "645",
+    "unprofessionally",
+    "want",
+    "ser",
+    "worse",
+    "MC",
+    "really",
+    "crying",
+    "case",
+    "inactivity",
+    "710",
+    "gettin",
+    "record",
+    "scheduling",
+    "any",
+    "2a",
+    "discuss",
+    "bdl",
+    "prompts",
+]
+
 
 def read_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as f:
@@ -386,26 +490,8 @@ def plot_embeddings(
 ):
     """Plot only the embeddings for the selected words using t-SNE."""
 
-    word_to_plot = [
-        "superb",
-        "excellentcustomerservice",
-        "DM",
-        "1155am",
-        "DeniseJTaylor",
-        "skin",
-        "HayleyMad",
-        "share",
-        "race",
-        "reupgrade",
-        "aha",
-        "frontend",
-        "auction",
-        "annricord",
-        "captain",
-    ]
-
     word2idx = vocab["word2idx"]
-    indices = [word2idx.get(word, word2idx["<UNK>"]) for word in word_to_plot]
+    indices = [word2idx.get(word, word2idx["<UNK>"]) for word in words_to_plot]
 
     # Select only the embeddings for the words to plot
     init_selected = initial_embeddings[indices]
@@ -419,7 +505,7 @@ def plot_embeddings(
 
     plt.subplot(1, 2, 1)
     plt.scatter(init_emb_2d[:, 0], init_emb_2d[:, 1], alpha=0.6)
-    for i, word in enumerate(word_to_plot):
+    for i, word in enumerate(words_to_plot):
         plt.annotate(word, (init_emb_2d[i, 0], init_emb_2d[i, 1]), color="red")
     plt.title("Initial Embeddings (t-SNE)")
     plt.xlabel("Dim 1")
@@ -427,7 +513,7 @@ def plot_embeddings(
 
     plt.subplot(1, 2, 2)
     plt.scatter(trained_emb_2d[:, 0], trained_emb_2d[:, 1], alpha=0.6)
-    for i, word in enumerate(word_to_plot):
+    for i, word in enumerate(words_to_plot):
         plt.annotate(word, (trained_emb_2d[i, 0], trained_emb_2d[i, 1]), color="red")
     plt.title("Trained Embeddings (t-SNE)")
     plt.xlabel("Dim 1")
