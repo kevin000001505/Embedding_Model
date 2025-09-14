@@ -381,6 +381,62 @@ def evaluate(model, x_test, y_test):
     return loss, accuracy
 
 
+def plot_embeddings(
+    method: str = "avg", initial_embeddings=None, train_embeddings=None, vocab=None
+):
+    """Plot only the embeddings for the selected words using t-SNE."""
+
+    word_to_plot = [
+        "superb",
+        "excellentcustomerservice",
+        "DM",
+        "1155am",
+        "DeniseJTaylor",
+        "skin",
+        "HayleyMad",
+        "share",
+        "race",
+        "reupgrade",
+        "aha",
+        "frontend",
+        "auction",
+        "annricord",
+        "captain",
+    ]
+
+    word2idx = vocab["word2idx"]
+    indices = [word2idx.get(word, word2idx["<UNK>"]) for word in word_to_plot]
+
+    # Select only the embeddings for the words to plot
+    init_selected = initial_embeddings[indices]
+    trained_selected = train_embeddings[method][indices]
+
+    tsne = TSNE(n_components=2, random_state=42, perplexity=5)
+    init_emb_2d = tsne.fit_transform(init_selected)
+    trained_emb_2d = tsne.fit_transform(trained_selected)
+
+    plt.figure(figsize=(12, 5))
+
+    plt.subplot(1, 2, 1)
+    plt.scatter(init_emb_2d[:, 0], init_emb_2d[:, 1], alpha=0.6)
+    for i, word in enumerate(word_to_plot):
+        plt.annotate(word, (init_emb_2d[i, 0], init_emb_2d[i, 1]), color="red")
+    plt.title("Initial Embeddings (t-SNE)")
+    plt.xlabel("Dim 1")
+    plt.ylabel("Dim 2")
+
+    plt.subplot(1, 2, 2)
+    plt.scatter(trained_emb_2d[:, 0], trained_emb_2d[:, 1], alpha=0.6)
+    for i, word in enumerate(word_to_plot):
+        plt.annotate(word, (trained_emb_2d[i, 0], trained_emb_2d[i, 1]), color="red")
+    plt.title("Trained Embeddings (t-SNE)")
+    plt.xlabel("Dim 1")
+    plt.ylabel("Dim 2")
+
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
         print(
@@ -417,6 +473,10 @@ if __name__ == "__main__":
         vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
     )
 
+    log_init_target = log_model.target_embedding.weight.detach().numpy()
+    log_init_context = log_model.context_embedding.weight.detach().numpy()
+    log_init_avg = (log_init_target + log_init_context) / 2
+
     log_embeddings, log_losses = train(log_model, x_train, y_train)
     nn_embeddings, nn_losses = train(nn_model, x_train, y_train)
 
@@ -428,8 +488,9 @@ if __name__ == "__main__":
     nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
     print(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
 
-    breakpoint()
-
-    # On going...
-    # Evaluate the model on the test set
-    # Extract the weights and plot on 2D space using t-SNE
+    plot_embeddings(
+        method="avg",
+        initial_embeddings=log_init_avg,
+        train_embeddings=log_embeddings,
+        vocab=vocab,
+    )
