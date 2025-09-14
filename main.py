@@ -4,8 +4,9 @@ import json
 import random
 import numpy as np
 import emoji
+import matplotlib.pyplot as plt
 from typing import List, Dict, Tuple, Union
-from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from bs4 import BeautifulSoup as bs
 import torch
 import torch.nn as nn
@@ -38,6 +39,8 @@ class DataProcessing:
         self.output_dir = output_dir
         self.pos_vocab = set()
         self.neg_vocab = set()
+        self.pos_vocab.add("<UNK>")
+        self.neg_vocab.add("<UNK>")
 
     def remain_capital_words(self, content: str) -> str:
         # If the words have more than one capital letter, keep it as is; otherwise, convert to lowercase
@@ -240,7 +243,7 @@ class PrepareData:
     def word_to_index(self, word: str, word2idx: Dict[str, int]) -> int:
         """Convert a word to its corresponding index."""
         # If the word is not found, return the index for <UNK> or -1 if <UNK> is also not found
-        return word2idx.get(word, word2idx.get("<UNK>", -1))
+        return word2idx.get(word, word2idx.get("<UNK>", 0))
 
     def main(
         self,
@@ -364,6 +367,20 @@ def train(model, x_train, y_train, lr=0.01, num_epochs=100):
     return {"sum": emb_sum, "avg": emb_avg, "concat": emb_concat}, losses
 
 
+def evaluate(model, x_test, y_test):
+    model.eval()
+    with torch.no_grad():
+        y_pred = model(x_test)
+
+        loss_fn = nn.BCELoss()
+        loss = loss_fn(y_pred, y_test).item()
+
+        preds = (y_pred >= 0.5).float()
+        accuracy = (preds == y_test).float().mean().item()
+
+    return loss, accuracy
+
+
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
         print(
@@ -390,6 +407,11 @@ if __name__ == "__main__":
         training_data["label"].tolist(), dtype=torch.float32
     ).unsqueeze(1)
 
+    x_test = torch.tensor(testing_data["encoded_data"].tolist(), dtype=torch.long)
+    y_test = torch.tensor(
+        testing_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+
     log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=64)
     nn_model = SimpleWord2Vec_FFNN(
         vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
@@ -398,8 +420,16 @@ if __name__ == "__main__":
     log_embeddings, log_losses = train(log_model, x_train, y_train)
     nn_embeddings, nn_losses = train(nn_model, x_train, y_train)
 
+    # Logistic Regression model
+    log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
+    print(f"LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+
+    # Feedforward NN model
+    nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
+    print(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+
     breakpoint()
 
     # On going...
     # Evaluate the model on the test set
-    # Extract the weights and plot on 2D space using PCA
+    # Extract the weights and plot on 2D space using t-SNE
