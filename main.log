@@ -1,32 +1,32 @@
-2025-09-15 17:56:21,335:__init__:INFO:Creating cleaned_tweet folder structure
-2025-09-15 17:56:21,335:save_cleaned_file:INFO:Cleaning data on train dataset
-2025-09-15 17:56:22,509:save_cleaned_file:INFO:Cleaning data on test dataset
-2025-09-15 17:56:23,750:save_cleaned_file:INFO:Created word-to-id mapping for entire vocabulary
-2025-09-15 17:56:23,762:save_cleaned_file:INFO:Finished writting to vocab.json
-2025-09-15 17:56:23,762:<module>:INFO:Successfully cleaned the tweet data and saved in cleaned_tweet folder
-2025-09-15 17:56:24,085:main:INFO:Successfully created samples.
-2025-09-15 17:56:24,359:main:INFO:Successfully created samples.
-2025-09-15 17:56:25,146:train:INFO:Begin training for
+2025-09-15 18:09:42,350:__init__:INFO:Creating cleaned_tweet folder structure
+2025-09-15 18:09:42,350:save_cleaned_file:INFO:Cleaning data on train dataset
+2025-09-15 18:09:43,458:save_cleaned_file:INFO:Cleaning data on test dataset
+2025-09-15 18:09:44,699:save_cleaned_file:INFO:Created word-to-id mapping for entire vocabulary
+2025-09-15 18:09:44,711:save_cleaned_file:INFO:Finished writting to vocab.json
+2025-09-15 18:09:44,711:<module>:INFO:Successfully cleaned the tweet data and saved in cleaned_tweet folder
+2025-09-15 18:09:45,073:main:INFO:Successfully created samples.
+2025-09-15 18:09:45,278:main:INFO:Successfully created samples.
+2025-09-15 18:09:45,980:train:INFO:Begin training for
 SimpleWord2Vec_LogiR(
   (target_embedding): Embedding(3179, 64)
   (context_embedding): Embedding(3179, 64)
   (linear): Linear(in_features=128, out_features=1, bias=True)
 )
-2025-09-15 17:56:25,620:train:INFO:Epoch 10/100, Loss: 0.7278
-2025-09-15 17:56:25,975:train:INFO:Epoch 20/100, Loss: 0.7234
-2025-09-15 17:56:26,368:train:INFO:Epoch 30/100, Loss: 0.7192
-2025-09-15 17:56:26,674:train:INFO:Epoch 40/100, Loss: 0.7154
-2025-09-15 17:56:26,982:train:INFO:Epoch 50/100, Loss: 0.7118
-2025-09-15 17:56:27,259:train:INFO:Epoch 60/100, Loss: 0.7085
-2025-09-15 17:56:27,724:train:INFO:Epoch 70/100, Loss: 0.7054
-2025-09-15 17:56:28,264:train:INFO:Epoch 80/100, Loss: 0.7024
-2025-09-15 17:56:28,582:train:INFO:Epoch 90/100, Loss: 0.6997
-2025-09-15 17:56:28,925:train:INFO:Epoch 100/100, Loss: 0.6972
-2025-09-15 17:56:28,925:train:INFO:Training complete.
-2025-09-15 17:56:28,925:train:INFO:Total train_loss = 71.2655913233757
+2025-09-15 18:09:46,412:train:INFO:Epoch 10/100, Loss: 0.7172
+2025-09-15 18:09:46,806:train:INFO:Epoch 20/100, Loss: 0.7138
+2025-09-15 18:09:47,184:train:INFO:Epoch 30/100, Loss: 0.7106
+2025-09-15 18:09:47,499:train:INFO:Epoch 40/100, Loss: 0.7076
+2025-09-15 18:09:47,789:train:INFO:Epoch 50/100, Loss: 0.7048
+2025-09-15 18:09:48,062:train:INFO:Epoch 60/100, Loss: 0.7021
+2025-09-15 18:09:48,374:train:INFO:Epoch 70/100, Loss: 0.6996
+2025-09-15 18:09:48,649:train:INFO:Epoch 80/100, Loss: 0.6973
+2025-09-15 18:09:48,919:train:INFO:Epoch 90/100, Loss: 0.6950
+2025-09-15 18:09:49,194:train:INFO:Epoch 100/100, Loss: 0.6929
+2025-09-15 18:09:49,194:train:INFO:Training complete.
+2025-09-15 18:09:49,194:train:INFO:Total train_loss = 70.53460049629211
 
 
-2025-09-15 17:56:28,926:train:INFO:Begin training for
+2025-09-15 18:09:49,195:train:INFO:Begin training for
 SimpleWord2Vec_FFNN(
   (target_embedding): Embedding(3179, 64)
   (context_embedding): Embedding(3179, 64)
@@ -34,19 +34,19 @@ SimpleWord2Vec_FFNN(
   (layer2): Linear(in_features=32, out_features=32, bias=True)
   (layer3): Linear(in_features=32, out_features=1, bias=True)
 )
-2025-09-15 17:56:29,365:train:INFO:Epoch 10/100, Loss: 0.6999
-2025-09-15 17:56:29,798:train:INFO:Epoch 20/100, Loss: 0.6991
-2025-09-15 17:56:30,192:train:INFO:Epoch 30/100, Loss: 0.6983
-2025-09-15 17:56:30,557:train:INFO:Epoch 40/100, Loss: 0.6976
-2025-09-15 17:56:30,930:train:INFO:Epoch 50/100, Loss: 0.6969
-2025-09-15 17:56:31,306:train:INFO:Epoch 60/100, Loss: 0.6962
-2025-09-15 17:56:31,678:train:INFO:Epoch 70/100, Loss: 0.6956
-2025-09-15 17:56:32,068:train:INFO:Epoch 80/100, Loss: 0.6950
-2025-09-15 17:56:32,448:train:INFO:Epoch 90/100, Loss: 0.6945
-2025-09-15 17:56:32,826:train:INFO:Epoch 100/100, Loss: 0.6939
-2025-09-15 17:56:32,826:train:INFO:Training complete.
-2025-09-15 17:56:32,826:train:INFO:Total train_loss = 69.70072203874588
+2025-09-15 18:09:49,585:train:INFO:Epoch 10/100, Loss: 0.6946
+2025-09-15 18:09:49,962:train:INFO:Epoch 20/100, Loss: 0.6942
+2025-09-15 18:09:50,319:train:INFO:Epoch 30/100, Loss: 0.6937
+2025-09-15 18:09:50,674:train:INFO:Epoch 40/100, Loss: 0.6933
+2025-09-15 18:09:51,045:train:INFO:Epoch 50/100, Loss: 0.6928
+2025-09-15 18:09:51,524:train:INFO:Epoch 60/100, Loss: 0.6924
+2025-09-15 18:09:51,920:train:INFO:Epoch 70/100, Loss: 0.6920
+2025-09-15 18:09:52,335:train:INFO:Epoch 80/100, Loss: 0.6916
+2025-09-15 18:09:52,705:train:INFO:Epoch 90/100, Loss: 0.6913
+2025-09-15 18:09:53,072:train:INFO:Epoch 100/100, Loss: 0.6909
+2025-09-15 18:09:53,072:train:INFO:Training complete.
+2025-09-15 18:09:53,072:train:INFO:Total train_loss = 69.28785121440887
 
 
-2025-09-15 17:56:32,837:<module>:INFO:LogiR Test Loss: 0.6835, Accuracy: 0.5679
-2025-09-15 17:56:32,850:<module>:INFO:FFNN Test Loss: 0.7042, Accuracy: 0.5016
+2025-09-15 18:09:53,083:<module>:INFO:LogiR Test Loss: 0.7067, Accuracy: 0.5339
+2025-09-15 18:09:53,095:<module>:INFO:FFNN Test Loss: 0.6897, Accuracy: 0.5297

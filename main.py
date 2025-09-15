@@ -644,6 +644,11 @@ if __name__ == "__main__":
     nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
     logger.info(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
 
+    # Write accuracy to file
+    with open("accuracy.txt", "w") as f:
+        f.write(f"Logistic Regression test accuracy: {log_test_acc:.4f}\n")
+        f.write(f"Logistic Regression test accuracy: {nn_test_acc:.4f}\n")
+
     plot_embeddings(
         method="avg",
         initial_embeddings=log_init_avg,

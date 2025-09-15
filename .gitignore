@@ -15,3 +15,10 @@ tweet
 uv.lock
 .DS_Store
 cleaned_tweet/
+
+# Build products
+*.zip
+*.txt
+*.png
+*.log
+*.json
