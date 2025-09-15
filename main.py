@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup as bs
 import torch
 import torch.nn as nn
 import pandas as pd
+import logging
 
 words_to_plot = [
     "hire",
@@ -116,14 +117,18 @@ words_to_plot = [
     "prompts",
 ]
 
+logger = logging.getLogger(__name__)
 
+# Simple function to read in files as string
 def read_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as f:
+        logger.debug("read_file: ", file_path)
         return f.read()
 
-
+# Simple function to list all files under a directory and it's sub-directories as a list of strings
 def list_all_files(folder_path: str) -> List[str]:
     files = []
+    logger.debug("list_all_files:", folder_path)
     for root, _, filenames in os.walk(folder_path):
         for filename in filenames:
             files.append(os.path.join(root, filename))
@@ -133,7 +138,21 @@ def list_all_files(folder_path: str) -> List[str]:
 class DataProcessing:
     """Clean the tweet data and create a new folder cleaned_tweet with cleaned data"""
 
+    """
+    The init function of this class sets up the folder structure for cleaned versions of
+    the tweets dataset that mirrors it's folder structure. It also performs some sanity checks
+    to see if the dataset exists or not
+    """
     def __init__(self, input_dir: str = "./tweet", output_dir: str = "./cleaned_tweet"):
+        logger = logging.getLogger(__name__)
+        if (os.path.isdir(input_dir) and
+            os.path.isdir(os.path.join(output_dir, "test", "negative")) and
+            os.path.isdir(os.path.join(output_dir, "test", "positive")) and
+            os.path.isdir(os.path.join(output_dir, "train", "negative")) and
+            os.path.isdir(os.path.join(output_dir, "train", "positive"))):
+            raise Exception("The tweet folder doesn't exist or is corrupted. Please check the folder and try again.")
+
+        logger.info("Creating cleaned_tweet folder structure")
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(os.path.join(output_dir, "test", "negative"), exist_ok=True)
         os.makedirs(os.path.join(output_dir, "test", "positive"), exist_ok=True)
@@ -146,8 +165,8 @@ class DataProcessing:
         self.pos_vocab.add("<UNK>")
         self.neg_vocab.add("<UNK>")
 
+    # If the words have more than one capital letter, keep it as is; otherwise, convert to lowercase
     def remain_capital_words(self, content: str) -> str:
-        # If the words have more than one capital letter, keep it as is; otherwise, convert to lowercase
         words = content.split()
         return " ".join(
             [
@@ -156,6 +175,7 @@ class DataProcessing:
             ]
         )
 
+    # Main data cleaning function
     def data_cleaning(self, content: str) -> str:
 
         # remove HTML tags
@@ -164,8 +184,10 @@ class DataProcessing:
         # remove emoji
         content = emoji.demojize(content)
 
+        # Removes capitalization
         content = self.remain_capital_words(content)
 
+        # Removes punctuations
         content = re.sub(r"[^\w\s]", "", content)
 
         # Need the re to remove links like http, https, www
@@ -173,13 +195,21 @@ class DataProcessing:
 
         return content.strip()
 
+    """
+    This function first performs data cleaning, then save all cleaned tweets into the cleaned_tweet folder,
+    mirroring the tweet folder structure. Then, it creates word-to-id and id-to-word mappings and saves everything
+    into vocab.json.
+    """
     def save_cleaned_file(self):
         for subset in ["train", "test"]:
+            logger.info("Cleaning data on ", subset, " dataset")
             all_files = list_all_files(os.path.join(self.input_dir, subset))
             for file_path in all_files:
+                # Get the content of the sample and label from folder name
                 content = self.data_cleaning(read_file(file_path))
                 label = os.path.basename(os.path.dirname(file_path))
 
+                # Tokenized clean data and put them into appropriate folder from label
                 if subset == "train" and content != "":
                     tokens = content.split()
                     if label == "positive":
@@ -187,12 +217,20 @@ class DataProcessing:
                     else:
                         self.neg_vocab.update(tokens)
 
+                # Getting the relative path to input directory and mirroring it to output directory
                 relpath = os.path.relpath(file_path, self.input_dir)
                 output_path = os.path.join(self.output_dir, relpath)
+
+                # Write cleaned tweet into cleaned_tweet according to label
                 with open(output_path, "w", encoding="utf-8") as f:
                     f.write(content)
+
+        # Create id mapping for positive and negative words for entire vocabulary
         pos_word2idx = {word: idx for idx, word in enumerate(self.pos_vocab)}
         neg_word2idx = {word: idx for idx, word in enumerate(self.neg_vocab)}
+        logger.info("Created word-to-id mapping for entire vocabulary")
+
+        # Write the entire vocabulary including the word-to-id and id-to-word mappings to vocab.json
         with open("vocab.json", "w", encoding="utf-8") as f:
             json.dump(
                 {
@@ -211,11 +249,13 @@ class DataProcessing:
                 ensure_ascii=False,
                 indent=2,
             )
+        logger.info("Finished writting to vocab.json")
 
 
 class PrepareData:
     """Prepare the data for the Neural Network and logistic regression model."""
 
+    # The init function simply prepares the vocab dict by reading in vocab.json prepared by the DataProcessing class
     def __init__(
         self,
         vocab_path: str = "vocab.json",
@@ -223,8 +263,16 @@ class PrepareData:
         with open(vocab_path, "r", encoding="utf-8") as f:
             self.vocab_dict = json.load(f)
 
+    """
+    This class generates negative samples by randomly selecting words in the vocabulary not including
+    neighbors 
+    """
     def generate_neg_samples(
-        self, tr_s: List[str], context_window: int, label: str = "positive"
+        self,
+        target: str,
+        exclusion: List[str],
+        context_window: int,
+        label: str = "positive"
     ) -> Tuple[List[List[str]], List[int]]:
         """Generate negative samples for a positive samples. 2 * context_window negative samples."""
         neg_samples = []
@@ -233,13 +281,17 @@ class PrepareData:
             negative_word = random.choice(self.vocab_dict[label]["vocabulary"])
 
             if (
-                negative_word not in tr_s
-                and [tr_s[0], negative_word] not in neg_samples
+                negative_word != target and
+                negative_word not in exclusion
             ):
-                neg_samples.append([tr_s[0], negative_word])
+                neg_samples.append([target, negative_word])
 
         return (neg_samples, [0] * len(neg_samples))
 
+    """
+    Generate positive context pairs by using a sliding window over each target word in a tweet.
+    After each target word is feeded, a 2*N random negative samples are created.
+    """
     def create_data(
         self,
         data: List[str],
@@ -251,75 +303,30 @@ class PrepareData:
 
         tr_s = []
         lab_s = []
-
-        k = 0
         try:
-            while k < context_window:
-                k += 1
-                # Determine the positive label based on the distance with the target word
-                if proximity:
-                    positive_label = context_window - k + 1
-                else:
-                    positive_label = 1
+            for i in range(len(data)):
+                # Establish target word and context words using a sliding window of context_size
+                target = data[i]
+                positive_label = 1
+                context = data[0 if i < context_window else i - context_window : i + context_window + 1]
+                context.remove(target) # Remove target word from context
+                
+                # Add each context pair
+                for ctx_word in context:
+                    tr_s.append([target, ctx_word])
+                    lab_s.append(positive_label)
 
-                for i in range(len(data)):
-
-                    if i - k < 0 and i + k < len(data) - 1:
-                        sample = [data[i], data[i + k]]
-                        if sample in tr_s:
-                            continue
-
-                        tr_s.append(sample)
-                        lab_s.append(positive_label)
-
-                        # generate negative samples (4*[target, negative_word], [0, 0, 0, 0])
-                        generate_neg_samples = self.generate_neg_samples(
-                            sample, context_window, label
-                        )
-                        tr_s += generate_neg_samples[0]
-                        lab_s += generate_neg_samples[1]
-
-                    elif i + k > len(data) - 1:
-                        sample = [data[i], data[i - k]]
-                        if sample in tr_s:
-                            continue
-                        tr_s.append(sample)
-                        lab_s.append(positive_label)
-
-                        generate_neg_samples = self.generate_neg_samples(
-                            sample, context_window
-                        )
-                        tr_s += generate_neg_samples[0]
-                        lab_s += generate_neg_samples[1]
-
-                    else:
-                        r_sample = [data[i], data[i - k]]
-                        l_sample = [data[i], data[i + k]]
-
-                        if r_sample not in tr_s:
-                            tr_s.append(r_sample)
-                            lab_s.append(positive_label)
-
-                            generate_neg_samples = self.generate_neg_samples(
-                                r_sample, context_window
-                            )
-                            tr_s += generate_neg_samples[0]
-                            lab_s += generate_neg_samples[1]
-
-                        if l_sample not in tr_s:
-                            tr_s.append(l_sample)
-                            lab_s.append(positive_label)
-
-                            generate_neg_samples = self.generate_neg_samples(
-                                l_sample, context_window
-                            )
-                            tr_s += generate_neg_samples[0]
-                            lab_s += generate_neg_samples[1]
+                # Generate N*2 negative samples for target word
+                generate_neg_samples = self.generate_neg_samples(target, context, context_window, label)
+                tr_s += generate_neg_samples[0]
+                lab_s += generate_neg_samples[1]
 
         except Exception as e:
             # For debugging purposes
-            print(f"Error in create_data at k={k}, i={i}: {e}")
-            print(f"Data: {data}")
+            logger.error(f"Error in create_data {e}")
+            logger.error(f"Data: {data}")
+            logger.error(f"tr_s: {tr_s}")
+            logger.error(f"lab_s: {lab_s}")
 
         return (tr_s, lab_s)
 
@@ -522,16 +529,17 @@ def plot_embeddings(
     plt.tight_layout()
     plt.show()
 
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
-        print(
+        logger.warning(
             "cleaned_tweet folder already exists. Please remove it first if you want to re-generate."
         )
     else:
         processor = DataProcessing()
         processor.save_cleaned_file()
-        print("Successfully cleaned the tweet data and saved in cleaned_tweet folder")
+        logger.info("Successfully cleaned the tweet data and saved in cleaned_tweet folder")
 
     dataloader = PrepareData(vocab_path="vocab.json")
 
