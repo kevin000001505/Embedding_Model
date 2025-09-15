@@ -117,18 +117,27 @@ words_to_plot = [
     "prompts",
 ]
 
+# Remove log of previous training
+os.remove("main.log")
+
+# Configure basic logging to a file
+logging.basicConfig(
+    filename='main.log',  # Name of the log file
+    level=logging.INFO,  # Minimum logging level to capture (e.g., INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s:%(funcName)s:%(levelname)s:%(message)s'  # Format of the log messages
+)
 logger = logging.getLogger(__name__)
 
 # Simple function to read in files as string
 def read_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8") as f:
-        logger.debug("read_file: ", file_path)
+        logger.debug(f"read_file: {file_path}")
         return f.read()
 
 # Simple function to list all files under a directory and it's sub-directories as a list of strings
 def list_all_files(folder_path: str) -> List[str]:
     files = []
-    logger.debug("list_all_files:", folder_path)
+    logger.debug(f"list_all_files: {folder_path}")
     for root, _, filenames in os.walk(folder_path):
         for filename in filenames:
             files.append(os.path.join(root, filename))
@@ -202,7 +211,7 @@ class DataProcessing:
     """
     def save_cleaned_file(self):
         for subset in ["train", "test"]:
-            logger.info("Cleaning data on ", subset, " dataset")
+            logger.info(f"Cleaning data on {subset} dataset")
             all_files = list_all_files(os.path.join(self.input_dir, subset))
             for file_path in all_files:
                 # Get the content of the sample and label from folder name
@@ -265,7 +274,7 @@ class PrepareData:
 
     """
     This class generates negative samples by randomly selecting words in the vocabulary not including
-    neighbors 
+    the target word and its context
     """
     def generate_neg_samples(
         self,
@@ -330,6 +339,7 @@ class PrepareData:
 
         return (tr_s, lab_s)
 
+    # Function to aggregate various generated data to a single data structure
     def load_data(
         self, label: str = "positive", file_dir: str = "train"
     ) -> Dict[str, Union[List[str], Dict[str, int], Dict[int, str]]]:
@@ -351,11 +361,12 @@ class PrepareData:
             "idx2word": idx2word,
         }
 
+    """Convert a word to its corresponding index."""
     def word_to_index(self, word: str, word2idx: Dict[str, int]) -> int:
-        """Convert a word to its corresponding index."""
         # If the word is not found, return the index for <UNK> or -1 if <UNK> is also not found
         return word2idx.get(word, word2idx.get("<UNK>", 0))
 
+    """Main function to prepare the data."""
     def main(
         self,
         context_window: int = 2,
@@ -363,7 +374,6 @@ class PrepareData:
         label: str = "positive",
         file_dir: str = "train",
     ) -> pd.DataFrame:
-        """Main function to prepare the data."""
 
         samples = pd.DataFrame(columns=["data", "label", "encoded_data"])
 
@@ -379,23 +389,33 @@ class PrepareData:
                 all_tr += results[0]
                 all_lab += results[1]
             except Exception as e:
-                print(f"Error processing content: {e}")
-                print(f"Content: {content}")
-                print(f"Tokens: {tokens}")
+                logger.error(f"Error processing content: {e}")
+                logger.error(f"Content: {content}")
+                logger.error(f"Tokens: {tokens}")
 
         samples["data"] = all_tr
         samples["label"] = all_lab
         samples["encoded_data"] = samples["data"].apply(
             lambda x: [self.word_to_index(word, variables["word2idx"]) for word in x]
         )
-        print("Successfully created samples.")
+        logger.info("Successfully created samples.")
 
         return samples
 
-
 class SimpleWord2Vec_LogiR(nn.Module):
+    """
+    A simple Word2Vec-style model that uses Logistic Regression on top of
+    concatenated word embeddings to predict if a word pair is a positive
+    (real context) or negative (random) sample.
+    """
 
     def __init__(self, vocab_size: int, embedding_dim: int = 128):
+        """
+        Initializes the model layers.
+        Args:
+            vocab_size (int): The total number of unique words in the vocabulary.
+            embedding_dim (int): The desired dimensionality of the word vectors.
+        """
         super(SimpleWord2Vec_LogiR, self).__init__()
         # set TWO embeddings for target and context, respectively
         self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
@@ -404,6 +424,16 @@ class SimpleWord2Vec_LogiR(nn.Module):
         self.linear = nn.Linear(2 * embedding_dim, 1)
 
     def forward(self, inputs):
+        """
+        Defines the forward pass of the model.
+        Args:
+            inputs (torch.Tensor): A tensor of shape (batch_size, 2), where
+                                   inputs[:, 0] are target word indices and
+                                   inputs[:, 1] are context word indices.
+        Returns:
+            torch.Tensor: A tensor of shape (batch_size, 1) containing the
+                          predicted probabilities.
+        """
         # get indices of target and context from inputs, respectively
         target = inputs[:, 0]
         context = inputs[:, 1]
@@ -418,8 +448,19 @@ class SimpleWord2Vec_LogiR(nn.Module):
 
 
 class SimpleWord2Vec_FFNN(nn.Module):
+    """
+    A more complex Word2Vec-style model that uses a small Feed-Forward
+    Neural Network (FFNN) instead of a simple logistic regression layer.
+    """
 
     def __init__(self, vocab_size, embedding_dim, node_size=64):
+        """
+        Initializes the model layers.
+        Args:
+            vocab_size (int): The total number of unique words in the vocabulary.
+            embedding_dim (int): The desired dimensionality of the word vectors.
+            node_size (int): The number of neurons in the hidden layers.
+        """
         super(SimpleWord2Vec_FFNN, self).__init__()
 
         self.target_embedding = nn.Embedding(vocab_size, embedding_dim)
@@ -430,6 +471,13 @@ class SimpleWord2Vec_FFNN(nn.Module):
         self.layer3 = nn.Linear(node_size, 1)
 
     def forward(self, inputs):
+        """
+        Defines the forward pass of the model.
+        Args:
+            inputs (torch.Tensor): A tensor of shape (batch_size, 2).
+        Returns:
+            torch.Tensor: A tensor of shape (batch_size, 1) of probabilities.
+        """
         target = inputs[:, 0]
         context = inputs[:, 1]
 
@@ -443,13 +491,26 @@ class SimpleWord2Vec_FFNN(nn.Module):
         out = torch.sigmoid(out)
         return out
 
-
+# Function to train either logistic regression or neural network model
 def train(model, x_train, y_train, lr=0.01, num_epochs=100):
-    """Train the model. Get the Embedding weights after training."""
+    """
+    Trains a given PyTorch model and extracts the learned embeddings.
+    Args:
+        model (nn.Module): The model to be trained (either LogiR or FFNN).
+        x_train (torch.Tensor): The input training data (word pair indices).
+        y_train (torch.Tensor): The training labels (0 or 1).
+        lr (float): The learning rate for the optimizer.
+        num_epochs (int): The number of times to iterate over the entire dataset.
+    Returns:
+        tuple: A tuple containing:
+               - A dictionary of the final combined word embeddings.
+               - A list of loss values for each epoch.
+    """
     loss_function = nn.BCELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     total_loss = 0
     losses = []
+    logger.info(f"Begin training for\n{model}")
     for epoch in range(num_epochs):
         y_predicted = model(x_train)
 
@@ -462,10 +523,10 @@ def train(model, x_train, y_train, lr=0.01, num_epochs=100):
         total_loss += loss.item()
 
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
+            logger.info(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}")
 
-    print("Training complete.\n")
-    print("total train_loss =", total_loss)
+    logger.info("Training complete.")
+    logger.info(f"Total train_loss = {total_loss}\n\n")
 
     # --- Extract embeddings ---
     target_emb = model.target_embedding.weight.detach().numpy()
@@ -477,7 +538,7 @@ def train(model, x_train, y_train, lr=0.01, num_epochs=100):
 
     return {"sum": emb_sum, "avg": emb_avg, "concat": emb_concat}, losses
 
-
+# Function to evaluate model based on loss and accuracy
 def evaluate(model, x_test, y_test):
     model.eval()
     with torch.no_grad():
@@ -491,7 +552,7 @@ def evaluate(model, x_test, y_test):
 
     return loss, accuracy
 
-
+# Function to plot embeddings based on selected vocabulary
 def plot_embeddings(
     method: str = "avg", initial_embeddings=None, train_embeddings=None, vocab=None
 ):
@@ -527,7 +588,8 @@ def plot_embeddings(
     plt.ylabel("Dim 2")
 
     plt.tight_layout()
-    plt.show()
+    plt.title("Embeddings plot")
+    plt.savefig("embeddings.png")
 
 logger = logging.getLogger(__name__)
 
@@ -576,11 +638,11 @@ if __name__ == "__main__":
 
     # Logistic Regression model
     log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
-    print(f"LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+    logger.info(f"LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
 
     # Feedforward NN model
     nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
-    print(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+    logger.info(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
 
     plot_embeddings(
         method="avg",
