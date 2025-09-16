@@ -130,7 +130,7 @@ logger = logging.getLogger(__name__)
 
 # Simple function to read in files as string
 def read_file(file_path: str) -> str:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         logger.debug(f"read_file: {file_path}")
         return f.read()
 
@@ -593,6 +593,111 @@ def plot_embeddings(
 
 logger = logging.getLogger(__name__)
 
+#basic version is the model with default parameters
+def run_basic_version(dataloader, vocab):
+    logger.info("--- Running Basic Version ---")
+
+    #default context window of 2 as specified 
+    training_data = dataloader.main(
+        context_window=2, proximity=False, label="positive", file_dir="train"
+    )
+    testing_data = dataloader.main(
+        context_window=2, proximity=False, label="positive", file_dir="test"
+    )
+    x_train = torch.tensor(training_data["encoded_data"].tolist(), dtype=torch.long)
+    y_train = torch.tensor(
+        training_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+    x_test = torch.tensor(testing_data["encoded_data"].tolist(), dtype=torch.long)
+    y_test = torch.tensor(
+        testing_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+
+    #nitialize models with default parameters
+    log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=64)
+    nn_model = SimpleWord2Vec_FFNN(
+        vocab_size=len(vocab["vocab"]), 
+        embedding_dim=64, 
+        node_size=32
+    )
+
+    log_init_target = log_model.target_embedding.weight.detach().numpy()
+    log_init_context = log_model.context_embedding.weight.detach().numpy()
+    log_init_avg = (log_init_target + log_init_context) / 2
+
+    #train model with default number of 100 epochs
+    log_embeddings, _ = train(log_model, x_train, y_train, num_epochs=100)
+    nn_embeddings, _ = train(nn_model, x_train, y_train, num_epochs=100)
+
+    #evaluate and log results for both 
+    log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
+    logger.info(f"Basic LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+    nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
+    logger.info(f"Basic FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+
+    # Write accuracy to file
+    with open("accuracy_basic.txt", "w") as f:
+        f.write(f"Logistic Regression test accuracy: {log_test_acc:.4f}\n")
+        f.write(f"Feedforward NN test accuracy: {nn_test_acc:.4f}\n")
+
+    plot_embeddings(
+        method="avg",
+        initial_embeddings=log_init_avg,
+        train_embeddings=log_embeddings,
+        vocab=vocab
+    )
+#bonus question, run the model with improved parameters
+def run_bonus_version(dataloader, vocab):
+    logger.info("\n--- Running Bonus Version ---")
+
+    #increase context window to 3 
+    training_data = dataloader.main(
+        context_window=3, proximity=False, label="positive", file_dir="train"
+    )
+    testing_data = dataloader.main(
+        context_window=3, proximity=False, label="positive", file_dir="test"
+    )
+
+    x_train = torch.tensor(training_data["encoded_data"].tolist(), dtype=torch.long)
+    y_train = torch.tensor(
+        training_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+    x_test = torch.tensor(testing_data["encoded_data"].tolist(), dtype=torch.long)
+    y_test = torch.tensor(
+        testing_data["label"].tolist(), dtype=torch.float32
+    ).unsqueeze(1)
+
+    #increase embedding dimension and node size for bonus challenge
+    log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=128)
+    nn_model = SimpleWord2Vec_FFNN(
+        vocab_size=len(vocab["vocab"]), embedding_dim=128, node_size=64
+    )
+
+    log_init_target = log_model.target_embedding.weight.detach().numpy()
+    log_init_context = log_model.context_embedding.weight.detach().numpy()
+    log_init_avg = (log_init_target + log_init_context) / 2
+
+    #train with more epochs 200
+    log_embeddings, _ = train(log_model, x_train, y_train, num_epochs=200)
+    nn_embeddings, _ = train(nn_model, x_train, y_train, num_epochs=200)
+
+    #evaluate and log results
+    log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
+    logger.info(f"Bonus LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+    nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
+    logger.info(f"Bonus FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+
+    with open("accuracy_bonus.txt", "w") as f:
+        f.write(f"Logistic Regression test accuracy: {log_test_acc:.4f}\n")
+        f.write(f"Feedforward NN test accuracy: {nn_test_acc:.4f}\n")
+
+    plot_embeddings(
+        method="avg",
+        initial_embeddings=log_init_avg,
+        train_embeddings=log_embeddings,
+        vocab=vocab
+    )
+
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
         logger.warning(
@@ -604,54 +709,29 @@ if __name__ == "__main__":
         logger.info("Successfully cleaned the tweet data and saved in cleaned_tweet folder")
 
     dataloader = PrepareData(vocab_path="vocab.json")
-
-    training_data = dataloader.main(
-        context_window=2, proximity=False, label="positive", file_dir="train"
-    )
-    testing_data = dataloader.main(
-        context_window=2, proximity=False, label="positive", file_dir="test"
-    )
-
     vocab = dataloader.load_data(label="positive", file_dir="train")
 
-    x_train = torch.tensor(training_data["encoded_data"].tolist(), dtype=torch.long)
-    y_train = torch.tensor(
-        training_data["label"].tolist(), dtype=torch.float32
-    ).unsqueeze(1)
+    #run both 
+    run_basic_version(dataloader, vocab)
+    run_bonus_version(dataloader, vocab)
 
-    x_test = torch.tensor(testing_data["encoded_data"].tolist(), dtype=torch.long)
-    y_test = torch.tensor(
-        testing_data["label"].tolist(), dtype=torch.float32
-    ).unsqueeze(1)
 
-    log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=64)
-    nn_model = SimpleWord2Vec_FFNN(
-        vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
-    )
+    """
+    Summary of Results:
 
-    log_init_target = log_model.target_embedding.weight.detach().numpy()
-    log_init_context = log_model.context_embedding.weight.detach().numpy()
-    log_init_avg = (log_init_target + log_init_context) / 2
+    Initial Embeddings show a random and scattered distribution of words. 
+    This is the expected result, as the model's word vectors are initialized with random values before training begins. 
+    There is no semantic or contextual relationship between the words at this stage. 
+    After training, the Trained Embeddings exhibit a more structured and clustered arrangement. 
+    Words that are semantically or contextually related are positioned closer together in the embedding space. 
+    This indicates that the model has learned meaningful representations of words based on their usage in the training data.
+    A clear example of this is the clustering of words like "frustrating," "badpolicy," "unhappy," and "overheating" are positioned closely together, forming a clear semantic group.
 
-    log_embeddings, log_losses = train(log_model, x_train, y_train)
-    nn_embeddings, nn_losses = train(nn_model, x_train, y_train)
+    As for the bonus version, which trained for 200 epochs, used a larger embedding dimension of 128 and node size of 64, and a context window of 3, was slightly better than the basic model in term of accuracy and loss. 
+    Its test loss was significantly lower, and its accuracy was higher for both the Logistic Regression and Feedforward Neural Network models. 
+    This performance improvement is a direct result of the enhanced hyperparameters. 
+    The increased embedding dimension allowed the model to capture more complex semantic relationships, while the higher number of epochs provided a more robust and refined training process. 
 
-    # Logistic Regression model
-    log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
-    logger.info(f"LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
-
-    # Feedforward NN model
-    nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
-    logger.info(f"FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
-
-    # Write accuracy to file
-    with open("accuracy.txt", "w") as f:
-        f.write(f"Logistic Regression test accuracy: {log_test_acc:.4f}\n")
-        f.write(f"Logistic Regression test accuracy: {nn_test_acc:.4f}\n")
-
-    plot_embeddings(
-        method="avg",
-        initial_embeddings=log_init_avg,
-        train_embeddings=log_embeddings,
-        vocab=vocab,
-    )
+   """
+    
+    
