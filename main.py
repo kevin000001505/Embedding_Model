@@ -122,17 +122,19 @@ os.remove("main.log")
 
 # Configure basic logging to a file
 logging.basicConfig(
-    filename='main.log',  # Name of the log file
+    filename="main.log",  # Name of the log file
     level=logging.INFO,  # Minimum logging level to capture (e.g., INFO, DEBUG, WARNING, ERROR, CRITICAL)
-    format='%(asctime)s:%(funcName)s:%(levelname)s:%(message)s'  # Format of the log messages
+    format="%(asctime)s:%(funcName)s:%(levelname)s:%(message)s",  # Format of the log messages
 )
 logger = logging.getLogger(__name__)
+
 
 # Simple function to read in files as string
 def read_file(file_path: str) -> str:
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         logger.debug(f"read_file: {file_path}")
         return f.read()
+
 
 # Simple function to list all files under a directory and it's sub-directories as a list of strings
 def list_all_files(folder_path: str) -> List[str]:
@@ -152,14 +154,19 @@ class DataProcessing:
     the tweets dataset that mirrors it's folder structure. It also performs some sanity checks
     to see if the dataset exists or not
     """
+
     def __init__(self, input_dir: str = "./tweet", output_dir: str = "./cleaned_tweet"):
         logger = logging.getLogger(__name__)
-        if (os.path.isdir(input_dir) and
-            os.path.isdir(os.path.join(output_dir, "test", "negative")) and
-            os.path.isdir(os.path.join(output_dir, "test", "positive")) and
-            os.path.isdir(os.path.join(output_dir, "train", "negative")) and
-            os.path.isdir(os.path.join(output_dir, "train", "positive"))):
-            raise Exception("The tweet folder doesn't exist or is corrupted. Please check the folder and try again.")
+        if (
+            os.path.isdir(input_dir)
+            and os.path.isdir(os.path.join(output_dir, "test", "negative"))
+            and os.path.isdir(os.path.join(output_dir, "test", "positive"))
+            and os.path.isdir(os.path.join(output_dir, "train", "negative"))
+            and os.path.isdir(os.path.join(output_dir, "train", "positive"))
+        ):
+            raise Exception(
+                "The tweet folder doesn't exist or is corrupted. Please check the folder and try again."
+            )
 
         logger.info("Creating cleaned_tweet folder structure")
         os.makedirs(output_dir, exist_ok=True)
@@ -209,6 +216,7 @@ class DataProcessing:
     mirroring the tweet folder structure. Then, it creates word-to-id and id-to-word mappings and saves everything
     into vocab.json.
     """
+
     def save_cleaned_file(self):
         for subset in ["train", "test"]:
             logger.info(f"Cleaning data on {subset} dataset")
@@ -276,12 +284,13 @@ class PrepareData:
     This class generates negative samples by randomly selecting words in the vocabulary not including
     the target word and its context
     """
+
     def generate_neg_samples(
         self,
         target: str,
         exclusion: List[str],
         context_window: int,
-        label: str = "positive"
+        label: str = "positive",
     ) -> Tuple[List[List[str]], List[int]]:
         """Generate negative samples for a positive samples. 2 * context_window negative samples."""
         neg_samples = []
@@ -289,10 +298,7 @@ class PrepareData:
         while len(neg_samples) < 2 * context_window:
             negative_word = random.choice(self.vocab_dict[label]["vocabulary"])
 
-            if (
-                negative_word != target and
-                negative_word not in exclusion
-            ):
+            if negative_word != target and negative_word not in exclusion:
                 neg_samples.append([target, negative_word])
 
         return (neg_samples, [0] * len(neg_samples))
@@ -301,11 +307,11 @@ class PrepareData:
     Generate positive context pairs by using a sliding window over each target word in a tweet.
     After each target word is feeded, a 2*N random negative samples are created.
     """
+
     def create_data(
         self,
         data: List[str],
         context_window: int = 2,
-        proximity: bool = False,
         label: str = "positive",
     ) -> Tuple[List[int], List[int]]:
         """Algorithm to generate the training data and labels."""
@@ -317,16 +323,22 @@ class PrepareData:
                 # Establish target word and context words using a sliding window of context_size
                 target = data[i]
                 positive_label = 1
-                context = data[0 if i < context_window else i - context_window : i + context_window + 1]
-                context.remove(target) # Remove target word from context
-                
+                context = data[
+                    0 if i < context_window else i - context_window : i
+                    + context_window
+                    + 1
+                ]
+                context.remove(target)  # Remove target word from context
+
                 # Add each context pair
                 for ctx_word in context:
                     tr_s.append([target, ctx_word])
                     lab_s.append(positive_label)
 
                 # Generate N*2 negative samples for target word
-                generate_neg_samples = self.generate_neg_samples(target, context, context_window, label)
+                generate_neg_samples = self.generate_neg_samples(
+                    target, context, context_window, label
+                )
                 tr_s += generate_neg_samples[0]
                 lab_s += generate_neg_samples[1]
 
@@ -362,11 +374,13 @@ class PrepareData:
         }
 
     """Convert a word to its corresponding index."""
+
     def word_to_index(self, word: str, word2idx: Dict[str, int]) -> int:
         # If the word is not found, return the index for <UNK> or -1 if <UNK> is also not found
         return word2idx.get(word, word2idx.get("<UNK>", 0))
 
     """Main function to prepare the data."""
+
     def main(
         self,
         context_window: int = 2,
@@ -401,6 +415,7 @@ class PrepareData:
         logger.info("Successfully created samples.")
 
         return samples
+
 
 class SimpleWord2Vec_LogiR(nn.Module):
     """
@@ -491,6 +506,7 @@ class SimpleWord2Vec_FFNN(nn.Module):
         out = torch.sigmoid(out)
         return out
 
+
 # Function to train either logistic regression or neural network model
 def train(model, x_train, y_train, lr=0.01, num_epochs=100):
     """
@@ -538,6 +554,7 @@ def train(model, x_train, y_train, lr=0.01, num_epochs=100):
 
     return {"sum": emb_sum, "avg": emb_avg, "concat": emb_concat}, losses
 
+
 # Function to evaluate model based on loss and accuracy
 def evaluate(model, x_test, y_test):
     model.eval()
@@ -551,6 +568,7 @@ def evaluate(model, x_test, y_test):
         accuracy = (preds == y_test).float().mean().item()
 
     return loss, accuracy
+
 
 # Function to plot embeddings based on selected vocabulary
 def plot_embeddings(
@@ -591,13 +609,15 @@ def plot_embeddings(
     plt.title("Embeddings plot")
     plt.savefig("embeddings.png")
 
+
 logger = logging.getLogger(__name__)
 
-#basic version is the model with default parameters
+
+# basic version is the model with default parameters
 def run_basic_version(dataloader, vocab):
     logger.info("--- Running Basic Version ---")
 
-    #default context window of 2 as specified 
+    # default context window of 2 as specified
     training_data = dataloader.main(
         context_window=2, proximity=False, label="positive", file_dir="train"
     )
@@ -613,27 +633,29 @@ def run_basic_version(dataloader, vocab):
         testing_data["label"].tolist(), dtype=torch.float32
     ).unsqueeze(1)
 
-    #nitialize models with default parameters
+    # nitialize models with default parameters
     log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=64)
     nn_model = SimpleWord2Vec_FFNN(
-        vocab_size=len(vocab["vocab"]), 
-        embedding_dim=64, 
-        node_size=32
+        vocab_size=len(vocab["vocab"]), embedding_dim=64, node_size=32
     )
 
     log_init_target = log_model.target_embedding.weight.detach().numpy()
     log_init_context = log_model.context_embedding.weight.detach().numpy()
     log_init_avg = (log_init_target + log_init_context) / 2
 
-    #train model with default number of 100 epochs
+    # train model with default number of 100 epochs
     log_embeddings, _ = train(log_model, x_train, y_train, num_epochs=100)
     nn_embeddings, _ = train(nn_model, x_train, y_train, num_epochs=100)
 
-    #evaluate and log results for both 
+    # evaluate and log results for both
     log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
-    logger.info(f"Basic LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+    logger.info(
+        f"Basic LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}"
+    )
     nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
-    logger.info(f"Basic FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+    logger.info(
+        f"Basic FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}"
+    )
 
     # Write accuracy to file
     with open("accuracy_basic.txt", "w") as f:
@@ -644,13 +666,15 @@ def run_basic_version(dataloader, vocab):
         method="avg",
         initial_embeddings=log_init_avg,
         train_embeddings=log_embeddings,
-        vocab=vocab
+        vocab=vocab,
     )
-#bonus question, run the model with improved parameters
+
+
+# bonus question, run the model with improved parameters
 def run_bonus_version(dataloader, vocab):
     logger.info("\n--- Running Bonus Version ---")
 
-    #increase context window to 3 
+    # increase context window to 3
     training_data = dataloader.main(
         context_window=3, proximity=False, label="positive", file_dir="train"
     )
@@ -667,7 +691,7 @@ def run_bonus_version(dataloader, vocab):
         testing_data["label"].tolist(), dtype=torch.float32
     ).unsqueeze(1)
 
-    #increase embedding dimension and node size for bonus challenge
+    # increase embedding dimension and node size for bonus challenge
     log_model = SimpleWord2Vec_LogiR(vocab_size=len(vocab["vocab"]), embedding_dim=128)
     nn_model = SimpleWord2Vec_FFNN(
         vocab_size=len(vocab["vocab"]), embedding_dim=128, node_size=64
@@ -677,15 +701,19 @@ def run_bonus_version(dataloader, vocab):
     log_init_context = log_model.context_embedding.weight.detach().numpy()
     log_init_avg = (log_init_target + log_init_context) / 2
 
-    #train with more epochs 200
+    # train with more epochs 200
     log_embeddings, _ = train(log_model, x_train, y_train, num_epochs=200)
     nn_embeddings, _ = train(nn_model, x_train, y_train, num_epochs=200)
 
-    #evaluate and log results
+    # evaluate and log results
     log_test_loss, log_test_acc = evaluate(log_model, x_test, y_test)
-    logger.info(f"Bonus LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}")
+    logger.info(
+        f"Bonus LogiR Test Loss: {log_test_loss:.4f}, Accuracy: {log_test_acc:.4f}"
+    )
     nn_test_loss, nn_test_acc = evaluate(nn_model, x_test, y_test)
-    logger.info(f"Bonus FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}")
+    logger.info(
+        f"Bonus FFNN Test Loss: {nn_test_loss:.4f}, Accuracy: {nn_test_acc:.4f}"
+    )
 
     with open("accuracy_bonus.txt", "w") as f:
         f.write(f"Logistic Regression test accuracy: {log_test_acc:.4f}\n")
@@ -695,8 +723,9 @@ def run_bonus_version(dataloader, vocab):
         method="avg",
         initial_embeddings=log_init_avg,
         train_embeddings=log_embeddings,
-        vocab=vocab
+        vocab=vocab,
     )
+
 
 if __name__ == "__main__":
     if os.path.exists("./cleaned_tweet") and os.path.exists("./vocab.json"):
@@ -706,15 +735,16 @@ if __name__ == "__main__":
     else:
         processor = DataProcessing()
         processor.save_cleaned_file()
-        logger.info("Successfully cleaned the tweet data and saved in cleaned_tweet folder")
+        logger.info(
+            "Successfully cleaned the tweet data and saved in cleaned_tweet folder"
+        )
 
     dataloader = PrepareData(vocab_path="vocab.json")
     vocab = dataloader.load_data(label="positive", file_dir="train")
 
-    #run both 
+    # run both
     run_basic_version(dataloader, vocab)
     run_bonus_version(dataloader, vocab)
-
 
     """
     Summary of Results:
@@ -733,5 +763,3 @@ if __name__ == "__main__":
     The increased embedding dimension allowed the model to capture more complex semantic relationships, while the higher number of epochs provided a more robust and refined training process. 
 
    """
-    
-    
