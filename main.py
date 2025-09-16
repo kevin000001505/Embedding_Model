@@ -157,7 +157,7 @@ class DataProcessing:
 
     def __init__(self, input_dir: str = "./tweet", output_dir: str = "./cleaned_tweet"):
         logger = logging.getLogger(__name__)
-        if (
+        if not (
             os.path.isdir(input_dir)
             and os.path.isdir(os.path.join(output_dir, "test", "negative"))
             and os.path.isdir(os.path.join(output_dir, "test", "positive"))
