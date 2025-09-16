@@ -312,6 +312,7 @@ class PrepareData:
         self,
         data: List[str],
         context_window: int = 2,
+        proximity: bool = False,
         label: str = "positive",
     ) -> Tuple[List[int], List[int]]:
         """Algorithm to generate the training data and labels."""
